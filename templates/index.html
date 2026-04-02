@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="NIFTY 50 Market Analysis Dashboard — BTST + Intraday prediction with FII/DII institutional flow data, news sentiment analysis, sector classification, and GAP UP / GAP DOWN / FLAT forecast.">
+    <title>NIFTY Market Analyzer — BTST + Intraday + FII/DII Dashboard</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="app-container">
+
+    <!-- ── Header ─────────────────────────────────── -->
+    <header class="header" id="header">
+        <div class="header__brand">
+            <span class="header__icon">📊</span>
+            <h1 class="header__title">NIFTY Market Analyzer</h1>
+        </div>
+        <p class="header__subtitle">
+            Real-time news sentiment + FII/DII institutional flows + intraday prediction.
+            BTST & Intraday analysis powered by multi-source intelligence.
+        </p>
+        <div class="header__badges">
+            <span class="header__badge">🏦 FII/DII Data</span>
+            <span class="header__badge">📈 BTST Analysis</span>
+            <span class="header__badge">⚡ Intraday Prediction</span>
+            <span class="header__badge">📰 News Sentiment</span>
+        </div>
+    </header>
+
+    <!-- ── Action Button ──────────────────────────── -->
+    <section class="action-section" id="action-section">
+        <button class="btn-analyze pulse-glow" id="btn-analyze" type="button">
+            <span class="btn-analyze__icon" id="btn-analyze-icon">⚡</span>
+            <span id="btn-analyze-text">Start Analysing</span>
+        </button>
+    </section>
+
+    <!-- ── Loading Overlay ────────────────────────── -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text" id="loading-text">Connecting to news sources...</div>
+        <div class="loading-subtext" id="loading-subtext">Fetching RSS feeds from Google News, Livemint, Economic Times</div>
+        <div class="loading-progress">
+            <div class="loading-progress__bar"></div>
+        </div>
+    </div>
+
+    <!-- ── Error Container ────────────────────────── -->
+    <div id="error-container"></div>
+
+    <!-- ── Dashboard (shown after analysis) ───────── -->
+    <main class="dashboard" id="dashboard">
+
+        <!-- ════════════════════════════════════════════ -->
+        <!-- TAB NAVIGATION: BTST / INTRADAY             -->
+        <!-- ════════════════════════════════════════════ -->
+        <nav class="tab-nav" id="tab-nav">
+            <button class="tab-btn active" data-tab="btst" id="tab-btst">
+                <span class="tab-btn__icon">🌙</span>
+                <span>BTST Prediction</span>
+                <span class="tab-btn__hint">Next Day Opening</span>
+            </button>
+            <button class="tab-btn" data-tab="intraday" id="tab-intraday">
+                <span class="tab-btn__icon">⚡</span>
+                <span>Intraday Prediction</span>
+                <span class="tab-btn__hint">Today's Movement</span>
+            </button>
+            <button class="tab-btn" data-tab="fiidii" id="tab-fiidii">
+                <span class="tab-btn__icon">🏦</span>
+                <span>FII / DII Data</span>
+                <span class="tab-btn__hint">Institutional Flows</span>
+            </button>
+        </nav>
+
+        <!-- ════════════════════════════════════════════ -->
+        <!-- TAB: BTST PREDICTION                        -->
+        <!-- ════════════════════════════════════════════ -->
+        <div class="tab-content active" id="content-btst">
+
+            <!-- Prediction Hero: Prediction | Gauge | BTST -->
+            <section class="prediction-hero animate-in" id="prediction-hero">
+
+                <!-- Prediction Card -->
+                <div class="card prediction-card gap-up" id="prediction-card">
+                    <div class="prediction-label">Next Day NIFTY Opening</div>
+                    <div class="prediction-value gap-up" id="prediction-value">GAP UP</div>
+                    <div class="prediction-subtitle" id="prediction-sentiment">🟢 Sentiment: BULLISH</div>
+                </div>
+
+                <!-- Confidence Gauge -->
+                <div class="card confidence-card">
+                    <div class="gauge-container">
+                        <svg class="gauge-svg" viewBox="0 0 120 120">
+                            <circle class="gauge-bg" cx="60" cy="60" r="54" />
+                            <circle class="gauge-fill" id="gauge-fill" cx="60" cy="60" r="54"
+                                    stroke-dasharray="339.292" stroke-dashoffset="339.292" />
+                        </svg>
+                        <div class="gauge-value">
+                            <div class="gauge-number" id="gauge-number">0</div>
+                            <div class="gauge-unit">%</div>
+                        </div>
+                    </div>
+                    <div class="gauge-label">Confidence</div>
+                </div>
+
+                <!-- BTST Bias Card -->
+                <div class="card btst-card">
+                    <div class="btst-label">BTST Trading Bias</div>
+                    <div class="btst-badge buy-ce" id="btst-badge">
+                        <span id="btst-icon">📈</span>
+                        <span>BUY CE</span>
+                    </div>
+                    <div class="btst-subtext">Based on news sentiment + FII/DII institutional flows</div>
+                </div>
+
+            </section>
+
+            <!-- Info Strip -->
+            <section class="info-strip animate-in animate-in-delay-1" id="info-strip"></section>
+
+            <!-- Score Bar -->
+            <section class="score-bar-container animate-in animate-in-delay-1">
+                <div class="score-bar">
+                    <div class="score-bar__bull" id="score-bar-bull" style="width: 0%;"></div>
+                    <div class="score-bar__bear" id="score-bar-bear" style="width: 0%;"></div>
+                </div>
+                <div class="score-bar__labels">
+                    <span class="bull" id="score-label-bull">Bullish 0%</span>
+                    <span class="bear" id="score-label-bear">Bearish 0%</span>
+                </div>
+            </section>
+
+            <!-- Summary -->
+            <section class="card summary-card animate-in animate-in-delay-2" id="summary-section">
+                <div class="section-title">
+                    <span class="section-title__icon">📝</span>
+                    Final Analysis Summary
+                </div>
+                <div class="summary-text" id="summary-text"></div>
+            </section>
+
+            <!-- Event Risk -->
+            <div class="event-risk-strip low animate-in animate-in-delay-2" id="event-risk"></div>
+
+            <!-- Key Drivers -->
+            <section class="animate-in animate-in-delay-3">
+                <div class="section-title">
+                    <span class="section-title__icon">🎯</span>
+                    Key Market Drivers
+                </div>
+                <div class="drivers-grid" id="key-drivers"></div>
+            </section>
+
+            <!-- Factors -->
+            <section class="animate-in animate-in-delay-3">
+                <div class="section-title">
+                    <span class="section-title__icon">⚖️</span>
+                    Bullish vs Bearish Factors
+                </div>
+                <div class="factors-grid">
+                    <div class="card factors-column factors-column--bullish">
+                        <div class="factors-column__title">
+                            <span>▲</span> Bullish Factors
+                        </div>
+                        <div id="bullish-factors"></div>
+                    </div>
+                    <div class="card factors-column factors-column--bearish">
+                        <div class="factors-column__title">
+                            <span>▼</span> Bearish Factors
+                        </div>
+                        <div id="bearish-factors"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Sector Summary -->
+            <section class="animate-in animate-in-delay-4">
+                <div class="section-title">
+                    <span class="section-title__icon">🏢</span>
+                    Sector-wise Sentiment
+                </div>
+                <div class="sector-grid" id="sector-grid"></div>
+            </section>
+
+        </div>
+
+        <!-- ════════════════════════════════════════════ -->
+        <!-- TAB: INTRADAY PREDICTION                    -->
+        <!-- ════════════════════════════════════════════ -->
+        <div class="tab-content" id="content-intraday">
+
+            <!-- Intraday Hero -->
+            <section class="intraday-hero animate-in" id="intraday-hero">
+
+                <!-- Intraday Bias Card -->
+                <div class="card intraday-bias-card" id="intraday-bias-card">
+                    <div class="prediction-label">Intraday Bias</div>
+                    <div class="intraday-bias-value" id="intraday-bias-value">BULLISH</div>
+                    <div class="intraday-bias-icon" id="intraday-bias-icon">🟢</div>
+                    <div class="prediction-subtitle" id="intraday-confidence-text">Confidence: 65%</div>
+                </div>
+
+                <!-- Intraday Confidence Gauge -->
+                <div class="card confidence-card">
+                    <div class="gauge-container">
+                        <svg class="gauge-svg" viewBox="0 0 120 120">
+                            <circle class="gauge-bg" cx="60" cy="60" r="54" />
+                            <circle class="gauge-fill" id="intraday-gauge-fill" cx="60" cy="60" r="54"
+                                    stroke-dasharray="339.292" stroke-dashoffset="339.292" />
+                        </svg>
+                        <div class="gauge-value">
+                            <div class="gauge-number" id="intraday-gauge-number">0</div>
+                            <div class="gauge-unit">%</div>
+                        </div>
+                    </div>
+                    <div class="gauge-label">Intraday Confidence</div>
+                </div>
+
+                <!-- Volatility Card -->
+                <div class="card volatility-card" id="volatility-card">
+                    <div class="btst-label">Expected Volatility</div>
+                    <div class="volatility-badge" id="volatility-badge">MODERATE</div>
+                    <div class="volatility-range" id="volatility-range">50-100 pts</div>
+                    <div class="btst-subtext" id="volatility-pct">~0.25-0.5%</div>
+                </div>
+
+            </section>
+
+            <!-- Market Phase -->
+            <div class="market-phase-strip animate-in animate-in-delay-1" id="market-phase-strip"></div>
+
+            <!-- Intraday Pattern -->
+            <section class="card intraday-pattern-card animate-in animate-in-delay-2" id="intraday-pattern-card">
+                <div class="section-title">
+                    <span class="section-title__icon">🔮</span>
+                    Expected Intraday Pattern
+                </div>
+                <div class="intraday-pattern-name" id="intraday-pattern-name">TRENDING UP</div>
+                <div class="intraday-pattern-desc" id="intraday-pattern-desc"></div>
+                <div class="intraday-strategy-grid">
+                    <div class="intraday-strategy-box" id="strategy-box">
+                        <div class="intraday-strategy-label">📋 Trading Strategy</div>
+                        <div class="intraday-strategy-text" id="intraday-strategy-text"></div>
+                    </div>
+                    <div class="intraday-strategy-box" id="option-strategy-box">
+                        <div class="intraday-strategy-label">📊 Option Strategy</div>
+                        <div class="intraday-strategy-text" id="intraday-option-strategy-text"></div>
+                    </div>
+                </div>
+                <div class="intraday-risk-level" id="intraday-risk-level"></div>
+            </section>
+
+            <!-- Intraday Bias Strategies -->
+            <section class="animate-in animate-in-delay-3">
+                <div class="section-title">
+                    <span class="section-title__icon">🎯</span>
+                    Actionable Strategies
+                </div>
+                <div class="drivers-grid" id="intraday-strategies"></div>
+            </section>
+
+            <!-- Intraday Drivers -->
+            <section class="animate-in animate-in-delay-3">
+                <div class="section-title">
+                    <span class="section-title__icon">⚡</span>
+                    Intraday Key Drivers
+                </div>
+                <div class="drivers-grid" id="intraday-drivers"></div>
+            </section>
+
+            <!-- Intraday Summary -->
+            <section class="card summary-card animate-in animate-in-delay-4" id="intraday-summary-section">
+                <div class="section-title">
+                    <span class="section-title__icon">📝</span>
+                    Intraday Analysis Summary
+                </div>
+                <div class="summary-text" id="intraday-summary-text"></div>
+            </section>
+
+        </div>
+
+        <!-- ════════════════════════════════════════════ -->
+        <!-- TAB: FII / DII DATA                         -->
+        <!-- ════════════════════════════════════════════ -->
+        <div class="tab-content" id="content-fiidii">
+
+            <!-- FII/DII Hero -->
+            <section class="fii-dii-hero animate-in" id="fii-dii-hero">
+
+                <!-- FII Card -->
+                <div class="card fii-card" id="fii-card">
+                    <div class="fii-dii-header">
+                        <span class="fii-dii-icon">🌐</span>
+                        <span class="fii-dii-title">FII / FPI</span>
+                    </div>
+                    <div class="fii-dii-subtitle">Foreign Institutional Investors</div>
+                    <div class="fii-dii-grid">
+                        <div class="fii-dii-stat">
+                            <div class="fii-dii-stat-label">Buy Value</div>
+                            <div class="fii-dii-stat-value positive" id="fii-buy-value">₹0 Cr</div>
+                        </div>
+                        <div class="fii-dii-stat">
+                            <div class="fii-dii-stat-label">Sell Value</div>
+                            <div class="fii-dii-stat-value negative" id="fii-sell-value">₹0 Cr</div>
+                        </div>
+                    </div>
+                    <div class="fii-dii-net" id="fii-net-container">
+                        <span class="fii-dii-net-label">Net Value</span>
+                        <span class="fii-dii-net-value" id="fii-net-value">₹0 Cr</span>
+                    </div>
+                </div>
+
+                <!-- DII Card -->
+                <div class="card dii-card" id="dii-card">
+                    <div class="fii-dii-header">
+                        <span class="fii-dii-icon">🏠</span>
+                        <span class="fii-dii-title">DII</span>
+                    </div>
+                    <div class="fii-dii-subtitle">Domestic Institutional Investors</div>
+                    <div class="fii-dii-grid">
+                        <div class="fii-dii-stat">
+                            <div class="fii-dii-stat-label">Buy Value</div>
+                            <div class="fii-dii-stat-value positive" id="dii-buy-value">₹0 Cr</div>
+                        </div>
+                        <div class="fii-dii-stat">
+                            <div class="fii-dii-stat-label">Sell Value</div>
+                            <div class="fii-dii-stat-value negative" id="dii-sell-value">₹0 Cr</div>
+                        </div>
+                    </div>
+                    <div class="fii-dii-net" id="dii-net-container">
+                        <span class="fii-dii-net-label">Net Value</span>
+                        <span class="fii-dii-net-value" id="dii-net-value">₹0 Cr</span>
+                    </div>
+                </div>
+
+                <!-- Net Summary Card -->
+                <div class="card fii-dii-summary-card" id="fii-dii-summary-card">
+                    <div class="fii-dii-header">
+                        <span class="fii-dii-icon">📊</span>
+                        <span class="fii-dii-title">Net Flow</span>
+                    </div>
+                    <div class="fii-dii-subtitle">Combined Institutional Activity</div>
+                    <div class="fii-dii-total-net" id="fii-dii-total-net">₹0 Cr</div>
+                    <div class="fii-dii-total-label" id="fii-dii-total-label">Total net institutional flow</div>
+                    <div class="fii-dii-data-info">
+                        <div id="fii-dii-source">Source: —</div>
+                        <div id="fii-dii-date">Date: —</div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- FII/DII Impact on Market -->
+            <section class="card summary-card animate-in animate-in-delay-2" id="fii-dii-impact-section">
+                <div class="section-title">
+                    <span class="section-title__icon">🎯</span>
+                    FII/DII Impact Analysis
+                </div>
+                <div class="drivers-grid" id="fii-dii-impact-factors"></div>
+            </section>
+
+            <!-- FII/DII Visual Bar -->
+            <section class="fii-dii-bar-section animate-in animate-in-delay-2">
+                <div class="section-title">
+                    <span class="section-title__icon">📊</span>
+                    FII vs DII Flow Comparison
+                </div>
+                <div class="fii-dii-bar-chart" id="fii-dii-bar-chart"></div>
+            </section>
+
+        </div>
+
+        <!-- ════════════════════════════════════════════ -->
+        <!-- COMMON: News Section (always visible)        -->
+        <!-- ════════════════════════════════════════════ -->
+        <section class="animate-in animate-in-delay-5">
+            <div class="section-title">
+                <span class="section-title__icon">📰</span>
+                All News Headlines
+            </div>
+            <div class="news-filters" id="news-filters"></div>
+            <div class="news-grid" id="news-grid"></div>
+        </section>
+
+    </main>
+
+    <!-- ── Footer ─────────────────────────────────── -->
+    <footer class="footer">
+        <div class="footer__text">
+            NIFTY Market Analysis Dashboard · BTST + Intraday + FII/DII · Built with Flask + BeautifulSoup · No API Keys Required
+        </div>
+        <div class="footer__disclaimer">
+            ⚠️ Disclaimer: This tool provides news-based sentiment analysis for educational purposes only.
+            It is NOT financial advice. Always do your own research before making trading decisions.
+            Past predictions do not guarantee future results.
+        </div>
+    </footer>
+
+</div>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+
+</body>
+</html>
