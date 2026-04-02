@@ -475,6 +475,27 @@ def _fetch_nse_plain_requests(max_retries: int = 2) -> Optional[dict]:
 
     Uses exponential backoff on failures.
     """
+    # Attempt 0: Pure raw request without session/cookies 
+    # (sometimes bypasses Akamai's HTML/JS traps entirely because it looks like an API call block)
+    try:
+        resp = requests.get(
+            NSE_FII_DII_API,
+            headers={
+                "User-Agent": _BROWSER_HEADERS["User-Agent"],
+                "Accept": "application/json, text/plain, */*",
+            },
+            timeout=8,
+        )
+        if resp.status_code == 200:
+            result = _parse_nse_api_response(resp.json())
+            if result:
+                result["source"] = "NSE India (raw request bypass)"
+                logger.info(f"✅ Tier 3 (raw request): FII net={result['fii']['net_value']}, DII net={result['dii']['net_value']}")
+                return result
+    except Exception as e:
+        logger.debug(f"Raw request bypass failed: {e}")
+
+    # Fallback to session strategy
     for attempt in range(1, max_retries + 1):
         try:
             session = requests.Session()
