@@ -1,7 +1,8 @@
 /**
  * script.js — NIFTY Market Analysis Dashboard
  * Handles API calls, DOM rendering, animations, tab switching,
- * FII/DII data display, and intraday prediction rendering.
+ * and intraday prediction rendering.
+ * News items are sorted by published date/time (most recent first).
  */
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -57,14 +58,11 @@ function switchTab(tab) {
 
 const LOADING_MESSAGES = [
     { text: "Connecting to news sources...", sub: "Fetching RSS feeds from Google News, Livemint, Economic Times" },
-    { text: "Scraping Indian market news...", sub: "Collecting NIFTY, Sensex, RBI, and FII/DII updates" },
-    { text: "Fetching FII/DII data...", sub: "Connecting to NSE India for institutional flow data" },
-    { text: "Trying alternative sources...", sub: "Checking Trendlyne, MoneyControl for FII/DII figures" },
+    { text: "Scraping Indian market news...", sub: "Collecting NIFTY, Sensex, RBI, and market updates" },
     { text: "Fetching global macro data...", sub: "US Fed, inflation, crude oil, and geopolitical news" },
     { text: "Scanning corporate earnings...", sub: "Banking, IT, Pharma, and other sector results" },
     { text: "Classifying news by sector...", sub: "Banking, IT, Pharma, Auto, Energy, FMCG, Metals..." },
     { text: "Running sentiment analysis...", sub: "Evaluating bullish vs bearish signals with weighted scoring" },
-    { text: "Incorporating FII/DII flows...", sub: "Adjusting prediction with institutional buying/selling data" },
     { text: "Generating intraday prediction...", sub: "Analyzing patterns, volatility, and market phase for today" },
     { text: "Computing BTST prediction...", sub: "Generating GAP UP / GAP DOWN / FLAT forecast" },
     { text: "Finalising analysis...", sub: "Preparing your market intelligence report" },
@@ -94,6 +92,35 @@ function stopLoadingMessages() {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Date Parsing & News Sorting
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/**
+ * Parse a date string like "08 Apr 2026, 10:30 AM" into a Date object.
+ * Falls back to current time if parsing fails.
+ */
+function parseNewsDate(dateStr) {
+    if (!dateStr) return new Date(0);
+    // Try native parse first (handles many formats)
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) return d;
+    // Fallback: return epoch so unparseable dates sort to end
+    return new Date(0);
+}
+
+/**
+ * Sort news items by published_date descending (most recent first).
+ */
+function sortNewsByDate(newsArray) {
+    if (!newsArray || newsArray.length === 0) return newsArray;
+    return [...newsArray].sort((a, b) => {
+        const dateA = parseNewsDate(a.published_date);
+        const dateB = parseNewsDate(b.published_date);
+        return dateB.getTime() - dateA.getTime(); // Descending: newest first
+    });
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // API Call
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -119,6 +146,15 @@ async function startAnalysis() {
         }
 
         analysisData = json.data;
+
+        // Sort all news arrays by date (most recent first)
+        if (analysisData.all_news) {
+            analysisData.all_news = sortNewsByDate(analysisData.all_news);
+        }
+        if (analysisData.major_news) {
+            analysisData.major_news = sortNewsByDate(analysisData.major_news);
+        }
+
         renderDashboard(analysisData);
     } catch (err) {
         console.error("Analysis failed:", err);
@@ -146,13 +182,10 @@ function renderDashboard(data) {
     renderFactors(data);
     renderSectorSummary(data);
 
-    // FII/DII Tab
-    renderFiiDiiData(data);
-
     // Intraday Tab
     renderIntradayPrediction(data);
 
-    // Common: News
+    // Common: News (sorted by date)
     renderNewsCards(data);
 
     dashboard.classList.add("active");
@@ -268,22 +301,6 @@ function renderInfoStrip(data) {
     const netClass = scores.net_score >= 0 ? "positive" : "negative";
     const netPrefix = scores.net_score >= 0 ? "+" : "";
 
-    let fiiDiiChip = "";
-    if (data.fii_dii) {
-        const fiiNet = data.fii_dii.fii.net_value;
-        const diiNet = data.fii_dii.dii.net_value;
-        const fiiClass = fiiNet >= 0 ? "positive" : "negative";
-        const diiClass = diiNet >= 0 ? "positive" : "negative";
-        fiiDiiChip = `
-            <div class="info-chip">
-                🏦 FII: <span class="info-chip__value ${fiiClass}">₹${formatCrore(fiiNet)}</span>
-            </div>
-            <div class="info-chip">
-                🏠 DII: <span class="info-chip__value ${diiClass}">₹${formatCrore(diiNet)}</span>
-            </div>
-        `;
-    }
-
     container.innerHTML = `
         <div class="info-chip">
             🟢 Bullish Score: <span class="info-chip__value positive">${scores.total_bullish}</span>
@@ -294,7 +311,6 @@ function renderInfoStrip(data) {
         <div class="info-chip">
             📊 Net Score: <span class="info-chip__value ${netClass}">${netPrefix}${scores.net_score}</span>
         </div>
-        ${fiiDiiChip}
         <div class="info-chip">
             📰 News Analyzed: <span class="info-chip__value">${data.total_news_analyzed}</span>
         </div>
@@ -440,120 +456,6 @@ function renderSectorSummary(data) {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// FII/DII Data Rendering
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-function renderFiiDiiData(data) {
-    if (!data.fii_dii) return;
-
-    const fii = data.fii_dii.fii;
-    const dii = data.fii_dii.dii;
-
-    // FII card
-    document.getElementById("fii-buy-value").textContent = `₹${formatCrore(fii.buy_value)} Cr`;
-    document.getElementById("fii-sell-value").textContent = `₹${formatCrore(fii.sell_value)} Cr`;
-
-    const fiiNetEl = document.getElementById("fii-net-value");
-    fiiNetEl.textContent = `₹${formatCrore(fii.net_value)} Cr`;
-    fiiNetEl.className = `fii-dii-net-value ${fii.net_value >= 0 ? "positive" : "negative"}`;
-
-    const fiiCard = document.getElementById("fii-card");
-    fiiCard.className = `card fii-card ${fii.net_value >= 0 ? "fii-positive" : "fii-negative"}`;
-
-    // DII card
-    document.getElementById("dii-buy-value").textContent = `₹${formatCrore(dii.buy_value)} Cr`;
-    document.getElementById("dii-sell-value").textContent = `₹${formatCrore(dii.sell_value)} Cr`;
-
-    const diiNetEl = document.getElementById("dii-net-value");
-    diiNetEl.textContent = `₹${formatCrore(dii.net_value)} Cr`;
-    diiNetEl.className = `fii-dii-net-value ${dii.net_value >= 0 ? "positive" : "negative"}`;
-
-    const diiCard = document.getElementById("dii-card");
-    diiCard.className = `card dii-card ${dii.net_value >= 0 ? "dii-positive" : "dii-negative"}`;
-
-    // Total net
-    const totalNet = fii.net_value + dii.net_value;
-    const totalNetEl = document.getElementById("fii-dii-total-net");
-    totalNetEl.textContent = `₹${formatCrore(totalNet)} Cr`;
-    totalNetEl.className = `fii-dii-total-net ${totalNet >= 0 ? "positive" : "negative"}`;
-
-    const totalLabel = document.getElementById("fii-dii-total-label");
-    totalLabel.textContent = totalNet >= 0
-        ? "Net institutional inflow — Bullish signal"
-        : "Net institutional outflow — Bearish signal";
-
-    // Source & date
-    document.getElementById("fii-dii-source").textContent = `Source: ${data.fii_dii.source || "—"}`;
-    document.getElementById("fii-dii-date").textContent = `Date: ${data.fii_dii.date || "—"}`;
-
-    // Impact factors
-    if (data.intraday && data.intraday.fii_dii_impact) {
-        const factorsContainer = document.getElementById("fii-dii-impact-factors");
-        factorsContainer.innerHTML = data.intraday.fii_dii_impact.factors
-            .map(
-                (f) => `
-            <div class="driver-item">
-                <span class="driver-item__icon"></span>
-                <span>${escapeHtml(f)}</span>
-            </div>
-        `
-            )
-            .join("");
-    }
-
-    // Bar chart visualization
-    renderFiiDiiBarChart(fii, dii);
-}
-
-function renderFiiDiiBarChart(fii, dii) {
-    const container = document.getElementById("fii-dii-bar-chart");
-
-    const maxVal = Math.max(
-        Math.abs(fii.buy_value), Math.abs(fii.sell_value),
-        Math.abs(dii.buy_value), Math.abs(dii.sell_value), 1
-    );
-
-    container.innerHTML = `
-        <div class="fii-dii-bar-row">
-            <span class="fii-dii-bar-label">FII Buy</span>
-            <div class="fii-dii-bar-track">
-                <div class="fii-dii-bar positive" style="width: ${(fii.buy_value / maxVal) * 100}%"></div>
-            </div>
-            <span class="fii-dii-bar-value positive">₹${formatCrore(fii.buy_value)}</span>
-        </div>
-        <div class="fii-dii-bar-row">
-            <span class="fii-dii-bar-label">FII Sell</span>
-            <div class="fii-dii-bar-track">
-                <div class="fii-dii-bar negative" style="width: ${(fii.sell_value / maxVal) * 100}%"></div>
-            </div>
-            <span class="fii-dii-bar-value negative">₹${formatCrore(fii.sell_value)}</span>
-        </div>
-        <div class="fii-dii-bar-divider"></div>
-        <div class="fii-dii-bar-row">
-            <span class="fii-dii-bar-label">DII Buy</span>
-            <div class="fii-dii-bar-track">
-                <div class="fii-dii-bar positive" style="width: ${(dii.buy_value / maxVal) * 100}%"></div>
-            </div>
-            <span class="fii-dii-bar-value positive">₹${formatCrore(dii.buy_value)}</span>
-        </div>
-        <div class="fii-dii-bar-row">
-            <span class="fii-dii-bar-label">DII Sell</span>
-            <div class="fii-dii-bar-track">
-                <div class="fii-dii-bar negative" style="width: ${(dii.sell_value / maxVal) * 100}%"></div>
-            </div>
-            <span class="fii-dii-bar-value negative">₹${formatCrore(dii.sell_value)}</span>
-        </div>
-    `;
-
-    // Animate bars
-    setTimeout(() => {
-        container.querySelectorAll(".fii-dii-bar").forEach((bar) => {
-            bar.style.transition = "width 1s cubic-bezier(0.4, 0, 0.2, 1)";
-        });
-    }, 100);
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // Intraday Prediction Rendering
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -654,7 +556,7 @@ function getPatternClass(pattern) {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// News Cards
+// News Cards (sorted by date — most recent first)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 function renderNewsCards(data) {
@@ -714,6 +616,8 @@ function renderNewsCards(data) {
         );
     }
 
+    // News are already sorted by date (most recent first) from startAnalysis()
+
     // Render
     if (filtered.length === 0) {
         newsGrid.innerHTML = `
@@ -745,7 +649,7 @@ function renderNewsCards(data) {
                 <span class="news-card__divider">•</span>
                 <span>${escapeHtml(n.source)}</span>
                 <span class="news-card__divider">•</span>
-                <span>${escapeHtml(n.published_date)}</span>
+                <span>🕐 ${escapeHtml(n.published_date)}</span>
             </div>
         </div>
     `
