@@ -437,6 +437,29 @@ def scrape_all_news() -> list[dict]:
     unique_items = _deduplicate(all_items)
     logger.info(f"Unique items after dedup: {len(unique_items)}")
 
+    # 4. Sort by published date — most recent first
+    def _sort_key(item: NewsItem) -> datetime:
+        """Parse the published_date string for sorting. Most recent first."""
+        if not item.published_date:
+            return datetime.min
+        formats = [
+            "%d %b %Y, %I:%M %p",  # "08 Apr 2026, 10:30 AM"
+            "%d %b %Y",            # "08 Apr 2026"
+            "%Y-%m-%d",            # "2026-04-08"
+            "%d-%m-%Y",            # "08-04-2026"
+            "%d/%m/%Y",            # "08/04/2026"
+            "%B %d, %Y",           # "April 08, 2026"
+        ]
+        for fmt in formats:
+            try:
+                return datetime.strptime(item.published_date.strip(), fmt)
+            except ValueError:
+                continue
+        return datetime.min
+
+    unique_items.sort(key=_sort_key, reverse=True)
+    logger.info("Sorted news items by published date (most recent first).")
+
     return [item.to_dict() for item in unique_items]
 
 
