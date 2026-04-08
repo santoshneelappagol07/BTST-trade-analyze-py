@@ -9,7 +9,6 @@ UPGRADES IN THIS VERSION:
   5. Score normalization by news count       (prevents volume bias)
   6. Signal confluence check                 (only trade when signals agree)
   7. GIFT Nifty, PCR, VIX, Global markets   (market microstructure signals)
-  8. FII/DII flow scoring (carried over + improved)
 
 ACCURACY NOTES:
   - NLP improvements (1-3) boost news classification by ~4-6%
@@ -660,64 +659,6 @@ def score_global_markets(market_changes: dict[str, float]) -> tuple[float, float
     return bull, bear, factors
 
 
-def _score_fii_dii_for_btst(fii_dii_data: dict) -> tuple[float, float, list[str]]:
-    """Score FII/DII data for BTST prediction (carried over, unchanged logic)."""
-    bull_boost = 0.0
-    bear_boost = 0.0
-    factors: list[str] = []
-
-    if not fii_dii_data:
-        return 0, 0, []
-
-    fii_net = fii_dii_data.get("fii", {}).get("net_value", 0)
-    dii_net = fii_dii_data.get("dii", {}).get("net_value", 0)
-
-    if fii_net > 2000:
-        bull_boost += 12
-        factors.append(f"FII heavy buying ₹{fii_net:,.0f}Cr — strong bullish for tomorrow")
-    elif fii_net > 1000:
-        bull_boost += 8
-        factors.append(f"FII strong buying ₹{fii_net:,.0f}Cr — bullish support")
-    elif fii_net > 500:
-        bull_boost += 5
-        factors.append(f"FII moderate buying ₹{fii_net:,.0f}Cr — positive signal")
-    elif fii_net > 0:
-        bull_boost += 2
-        factors.append(f"FII marginal buying ₹{fii_net:,.0f}Cr")
-    elif fii_net < -2000:
-        bear_boost += 12
-        factors.append(f"FII heavy selling ₹{fii_net:,.0f}Cr — strong bearish for tomorrow")
-    elif fii_net < -1000:
-        bear_boost += 8
-        factors.append(f"FII strong selling ₹{fii_net:,.0f}Cr — bearish pressure")
-    elif fii_net < -500:
-        bear_boost += 5
-        factors.append(f"FII moderate selling ₹{fii_net:,.0f}Cr — negative signal")
-    elif fii_net < 0:
-        bear_boost += 2
-        factors.append(f"FII marginal selling ₹{fii_net:,.0f}Cr")
-
-    if dii_net > 1000:
-        bull_boost += 4
-        factors.append(f"DII strong buying ₹{dii_net:,.0f}Cr — domestic support")
-    elif dii_net > 500:
-        bull_boost += 2
-        factors.append(f"DII buying ₹{dii_net:,.0f}Cr — domestic cushion")
-    elif dii_net < -1000:
-        bear_boost += 3
-        factors.append(f"DII selling ₹{dii_net:,.0f}Cr — no domestic support")
-    elif dii_net < -500:
-        bear_boost += 1
-        factors.append(f"DII selling ₹{dii_net:,.0f}Cr")
-
-    if fii_net > 500 and dii_net > 500:
-        bull_boost += 4
-        factors.append("Both FII+DII buying — twin institutional inflow")
-    elif fii_net < -500 and dii_net < -500:
-        bear_boost += 4
-        factors.append("Both FII+DII selling — broad institutional exit")
-
-    return bull_boost, bear_boost, factors
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -726,7 +667,6 @@ def _score_fii_dii_for_btst(fii_dii_data: dict) -> tuple[float, float, list[str]
 
 def check_signal_confluence(
     gift_direction: str | None,
-    fii_direction: str | None,
     global_direction: str | None,
     news_direction: str,
 ) -> dict[str, Any]:
@@ -738,7 +678,7 @@ def check_signal_confluence(
     Returns:
         dict with count, direction, confidence_modifier, recommendation
     """
-    signals = [gift_direction, fii_direction, global_direction, news_direction]
+    signals = [gift_direction, global_direction, news_direction]
     active_signals = [s for s in signals if s is not None]
 
     bull_count = active_signals.count("BULLISH")
@@ -820,8 +760,7 @@ def _direction_from_scores(bull: float, bear: float) -> str:
 
 def analyze_news(
     news_items: list[dict],
-    fii_dii_data: dict | None = None,
-    # ── New optional market microstructure inputs ──
+    # ── Optional market microstructure inputs ──
     gift_nifty_change_pct: float | None = None,   # e.g. +0.85
     india_vix: float | None = None,               # e.g. 14.2
     india_vix_change_pct: float | None = None,    # e.g. +3.5
@@ -836,8 +775,6 @@ def analyze_news(
     news_items : list[dict]
         News dicts from scraper. Must have: headline, snippet, sector,
         category, source, link, published_date.
-    fii_dii_data : dict | None
-        FII/DII flow data.
     gift_nifty_change_pct : float | None
         GIFT Nifty / SGX Nifty % change vs previous close.
     india_vix : float | None
@@ -933,23 +870,6 @@ def analyze_news(
         total_bull_score *= normalization_factor
         total_bear_score *= normalization_factor
 
-    # ── FII/DII scoring ───────────────────────────
-    fii_dii_bull_boost = 0.0
-    fii_dii_bear_boost = 0.0
-    fii_dii_factors: list[str] = []
-    fii_direction: str | None = None
-
-    if fii_dii_data:
-        fii_dii_bull_boost, fii_dii_bear_boost, fii_dii_factors = _score_fii_dii_for_btst(fii_dii_data)
-        total_bull_score += fii_dii_bull_boost
-        total_bear_score += fii_dii_bear_boost
-        fii_net = fii_dii_data.get("fii", {}).get("net_value", 0)
-        fii_direction = "BULLISH" if fii_net > 500 else ("BEARISH" if fii_net < -500 else None)
-        for f in fii_dii_factors:
-            if any(w in f.lower() for w in ["buying", "inflow", "twin"]):
-                all_bull_factors.insert(0, f)
-            else:
-                all_bear_factors.insert(0, f)
 
     # ── GIFT Nifty scoring ────────────────────────
     gift_bull = 0.0
@@ -1047,24 +967,13 @@ def analyze_news(
 
     # ── Signal confluence (NEW) ────────────────────
     confluence = check_signal_confluence(
-        gift_direction, fii_direction, global_direction, news_direction
+        gift_direction, global_direction, news_direction
     )
     raw_confidence += confluence["confidence_modifier"]
 
     # ── VIX confidence penalty ────────────────────
     raw_confidence -= vix_confidence_penalty
 
-    # ── FII/DII direction confirmation ────────────
-    if fii_dii_data:
-        fii_net = fii_dii_data.get("fii", {}).get("net_value", 0)
-        if prediction == "GAP UP" and fii_net > 500:
-            raw_confidence = min(90, raw_confidence + 8)
-        elif prediction == "GAP DOWN" and fii_net < -500:
-            raw_confidence = min(90, raw_confidence + 8)
-        elif prediction == "GAP UP" and fii_net < -500:
-            raw_confidence = max(25, raw_confidence - 10)
-        elif prediction == "GAP DOWN" and fii_net > 500:
-            raw_confidence = max(25, raw_confidence - 10)
 
     # ── GIFT Nifty direction confirmation ─────────
     if gift_nifty_change_pct is not None:
@@ -1128,7 +1037,7 @@ def analyze_news(
         total_bull_score, total_bear_score,
         all_bull_factors, all_bear_factors,
         event_risk, sector_sentiment,
-        fii_dii_data, gift_nifty_change_pct,
+        gift_nifty_change_pct,
         confluence,
     )
 
@@ -1149,7 +1058,7 @@ def analyze_news(
         prediction, confidence, news_sentiment,
         total_bull_score, total_bear_score,
         all_bull_factors, all_bear_factors,
-        event_risk, fii_dii_data, confluence,
+        event_risk, confluence,
         gift_nifty_change_pct, vix_result,
     )
 
@@ -1175,8 +1084,6 @@ def analyze_news(
             "total_bullish": round(total_bull_score, 1),
             "total_bearish": round(total_bear_score, 1),
             "net_score": round(total_bull_score - total_bear_score, 1),
-            "fii_dii_bull_boost": round(fii_dii_bull_boost, 1),
-            "fii_dii_bear_boost": round(fii_dii_bear_boost, 1),
             "gift_nifty_bull": round(gift_bull, 1),
             "gift_nifty_bear": round(gift_bear, 1),
             "global_bull": round(global_bull, 1),
@@ -1209,7 +1116,6 @@ def _extract_key_drivers(
     bear_factors: list[str],
     event_risk: str,
     sector_sentiment: dict,
-    fii_dii_data: dict | None = None,
     gift_nifty_change_pct: float | None = None,
     confluence: dict | None = None,
 ) -> list[str]:
@@ -1223,16 +1129,6 @@ def _extract_key_drivers(
             f"— primary gap predictor"
         )
 
-    # FII/DII second
-    if fii_dii_data:
-        fii_net = fii_dii_data.get("fii", {}).get("net_value", 0)
-        dii_net = fii_dii_data.get("dii", {}).get("net_value", 0)
-        fii_dir = "buying" if fii_net > 0 else "selling"
-        dii_dir = "buying" if dii_net > 0 else "selling"
-        drivers.append(
-            f"FII {fii_dir} ₹{abs(fii_net):,.0f}Cr, "
-            f"DII {dii_dir} ₹{abs(dii_net):,.0f}Cr"
-        )
 
     # Net score
     if bull_total > bear_total:
@@ -1283,7 +1179,6 @@ def _generate_summary(
     bull_factors: list[str],
     bear_factors: list[str],
     event_risk: str,
-    fii_dii_data: dict | None = None,
     confluence: dict | None = None,
     gift_nifty_change_pct: float | None = None,
     vix_result: dict | None = None,
@@ -1298,16 +1193,6 @@ def _generate_summary(
             f"indicating {'positive' if gift_nifty_change_pct > 0 else 'negative'} opening bias."
         )
 
-    # FII/DII
-    if fii_dii_data:
-        fii_net = fii_dii_data.get("fii", {}).get("net_value", 0)
-        dii_net = fii_dii_data.get("dii", {}).get("net_value", 0)
-        fii_dir = "bought" if fii_net > 0 else "sold"
-        dii_dir = "bought" if dii_net > 0 else "sold"
-        parts.append(
-            f"Institutional flows: FIIs {fii_dir} ₹{abs(fii_net):,.0f}Cr "
-            f"and DIIs {dii_dir} ₹{abs(dii_net):,.0f}Cr."
-        )
 
     # VIX warning
     if vix_result and vix_result.get("risk_level") in ("HIGH", "MEDIUM"):
@@ -1376,7 +1261,6 @@ def _empty_result(reason: str) -> dict[str, Any]:
         "confluence": {},
         "scores": {
             "total_bullish": 0, "total_bearish": 0, "net_score": 0,
-            "fii_dii_bull_boost": 0, "fii_dii_bear_boost": 0,
             "gift_nifty_bull": 0, "gift_nifty_bear": 0,
             "global_bull": 0, "global_bear": 0,
             "pcr_bull": 0, "pcr_bear": 0,
