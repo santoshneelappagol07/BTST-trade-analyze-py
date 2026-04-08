@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="NIFTY 50 Market Analysis Dashboard — BTST + Intraday prediction with FII/DII institutional flow data, news sentiment analysis, sector classification, and GAP UP / GAP DOWN / FLAT forecast.">
-    <title>NIFTY Market Analyzer — BTST + Intraday + FII/DII Dashboard</title>
+    <meta name="description" content="NIFTY 50 Market Analysis Dashboard — BTST + Intraday prediction with news sentiment analysis, sector classification, and GAP UP / GAP DOWN / FLAT forecast.">
+    <title>NIFTY Market Analyzer — BTST + Intraday Dashboard</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
@@ -19,11 +19,10 @@
             <h1 class="header__title">NIFTY Market Analyzer</h1>
         </div>
         <p class="header__subtitle">
-            Real-time news sentiment + FII/DII institutional flows + intraday prediction.
+            Real-time news sentiment + intraday prediction.
             BTST & Intraday analysis powered by multi-source intelligence.
         </p>
         <div class="header__badges">
-            <span class="header__badge">🏦 FII/DII Data</span>
             <span class="header__badge">📈 BTST Analysis</span>
             <span class="header__badge">⚡ Intraday Prediction</span>
             <span class="header__badge">📰 News Sentiment</span>
@@ -68,11 +67,6 @@
                 <span>Intraday Prediction</span>
                 <span class="tab-btn__hint">Today's Movement</span>
             </button>
-            <button class="tab-btn" data-tab="fiidii" id="tab-fiidii">
-                <span class="tab-btn__icon">🏦</span>
-                <span>FII / DII Data</span>
-                <span class="tab-btn__hint">Institutional Flows</span>
-            </button>
         </nav>
 
         <!-- ════════════════════════════════════════════ -->
@@ -113,7 +107,7 @@
                         <span id="btst-icon">📈</span>
                         <span>BUY CE</span>
                     </div>
-                    <div class="btst-subtext">Based on news sentiment + FII/DII institutional flows</div>
+                    <div class="btst-subtext">Based on news sentiment analysis</div>
                 </div>
 
             </section>
@@ -283,97 +277,6 @@
         </div>
 
         <!-- ════════════════════════════════════════════ -->
-        <!-- TAB: FII / DII DATA                         -->
-        <!-- ════════════════════════════════════════════ -->
-        <div class="tab-content" id="content-fiidii">
-
-            <!-- FII/DII Hero -->
-            <section class="fii-dii-hero animate-in" id="fii-dii-hero">
-
-                <!-- FII Card -->
-                <div class="card fii-card" id="fii-card">
-                    <div class="fii-dii-header">
-                        <span class="fii-dii-icon">🌐</span>
-                        <span class="fii-dii-title">FII / FPI</span>
-                    </div>
-                    <div class="fii-dii-subtitle">Foreign Institutional Investors</div>
-                    <div class="fii-dii-grid">
-                        <div class="fii-dii-stat">
-                            <div class="fii-dii-stat-label">Buy Value</div>
-                            <div class="fii-dii-stat-value positive" id="fii-buy-value">₹0 Cr</div>
-                        </div>
-                        <div class="fii-dii-stat">
-                            <div class="fii-dii-stat-label">Sell Value</div>
-                            <div class="fii-dii-stat-value negative" id="fii-sell-value">₹0 Cr</div>
-                        </div>
-                    </div>
-                    <div class="fii-dii-net" id="fii-net-container">
-                        <span class="fii-dii-net-label">Net Value</span>
-                        <span class="fii-dii-net-value" id="fii-net-value">₹0 Cr</span>
-                    </div>
-                </div>
-
-                <!-- DII Card -->
-                <div class="card dii-card" id="dii-card">
-                    <div class="fii-dii-header">
-                        <span class="fii-dii-icon">🏠</span>
-                        <span class="fii-dii-title">DII</span>
-                    </div>
-                    <div class="fii-dii-subtitle">Domestic Institutional Investors</div>
-                    <div class="fii-dii-grid">
-                        <div class="fii-dii-stat">
-                            <div class="fii-dii-stat-label">Buy Value</div>
-                            <div class="fii-dii-stat-value positive" id="dii-buy-value">₹0 Cr</div>
-                        </div>
-                        <div class="fii-dii-stat">
-                            <div class="fii-dii-stat-label">Sell Value</div>
-                            <div class="fii-dii-stat-value negative" id="dii-sell-value">₹0 Cr</div>
-                        </div>
-                    </div>
-                    <div class="fii-dii-net" id="dii-net-container">
-                        <span class="fii-dii-net-label">Net Value</span>
-                        <span class="fii-dii-net-value" id="dii-net-value">₹0 Cr</span>
-                    </div>
-                </div>
-
-                <!-- Net Summary Card -->
-                <div class="card fii-dii-summary-card" id="fii-dii-summary-card">
-                    <div class="fii-dii-header">
-                        <span class="fii-dii-icon">📊</span>
-                        <span class="fii-dii-title">Net Flow</span>
-                    </div>
-                    <div class="fii-dii-subtitle">Combined Institutional Activity</div>
-                    <div class="fii-dii-total-net" id="fii-dii-total-net">₹0 Cr</div>
-                    <div class="fii-dii-total-label" id="fii-dii-total-label">Total net institutional flow</div>
-                    <div class="fii-dii-data-info">
-                        <div id="fii-dii-source">Source: —</div>
-                        <div id="fii-dii-date">Date: —</div>
-                    </div>
-                </div>
-
-            </section>
-
-            <!-- FII/DII Impact on Market -->
-            <section class="card summary-card animate-in animate-in-delay-2" id="fii-dii-impact-section">
-                <div class="section-title">
-                    <span class="section-title__icon">🎯</span>
-                    FII/DII Impact Analysis
-                </div>
-                <div class="drivers-grid" id="fii-dii-impact-factors"></div>
-            </section>
-
-            <!-- FII/DII Visual Bar -->
-            <section class="fii-dii-bar-section animate-in animate-in-delay-2">
-                <div class="section-title">
-                    <span class="section-title__icon">📊</span>
-                    FII vs DII Flow Comparison
-                </div>
-                <div class="fii-dii-bar-chart" id="fii-dii-bar-chart"></div>
-            </section>
-
-        </div>
-
-        <!-- ════════════════════════════════════════════ -->
         <!-- COMMON: News Section (always visible)        -->
         <!-- ════════════════════════════════════════════ -->
         <section class="animate-in animate-in-delay-5">
@@ -390,7 +293,7 @@
     <!-- ── Footer ─────────────────────────────────── -->
     <footer class="footer">
         <div class="footer__text">
-            NIFTY Market Analysis Dashboard · BTST + Intraday + FII/DII · Built with Flask + BeautifulSoup · No API Keys Required
+            NIFTY Market Analysis Dashboard · BTST + Intraday · Built with Flask + BeautifulSoup · No API Keys Required
         </div>
         <div class="footer__disclaimer">
             ⚠️ Disclaimer: This tool provides news-based sentiment analysis for educational purposes only.
